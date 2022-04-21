@@ -1,5 +1,4 @@
 /*
-
 CREATE DATABASE b1_proyecto2;
 https://dev.mysql.com/doc/refman/8.0/en/example-foreign-keys.html
 */
@@ -46,7 +45,15 @@ CREATE TABLE ciudadano(
 ALTER TABLE persona ADD CONSTRAINT `fk_padre` FOREIGN KEY (`id_padre`) REFERENCES `ciudadano` (`dpi`);
 ALTER TABLE persona ADD CONSTRAINT `fk_madre` FOREIGN KEY (`id_madre`) REFERENCES `ciudadano` (`dpi`);
 
--- CREATE TABLE acta_matrimonio(
+CREATE TABLE acta_defuncion (
+    id_acta_defuncion INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_persona INT UNSIGNED NOT NULL,
+    fecha_fallecimiento DATE NOT NULL,
+    motivo TEXT NOT NULL,
+    FOREIGN KEY (id_persona) REFERENCES persona (id_persona)
+);
+
+-- CREATE TABLE acta_matrimonio (
 --     id_acta_matrimonio BIGINT UNSIGNED PRIMARY KEY,
 --     id_ciudadano_1 BIGINT UNSIGNED NOT NULL,
 --     id_ciudadano_2 BIGINT UNSIGNED NOT NULL,
@@ -86,8 +93,8 @@ ALTER TABLE municipio AUTO_INCREMENT=10;
 
 -- FUNCIONES
 
--- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
 DELIMITER $$
+-- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
 CREATE FUNCTION addNacimiento(dpi_padre BIGINT,dpi_madre BIGINT,primer_nombre VARCHAR(30),segundo_nombre VARCHAR(30),tercer_nombre VARCHAR(150),fecha_nacimiento DATE,id_municipio INT, genero VARCHAR(1)) RETURNS TEXT DETERMINISTIC
 BEGIN
     DECLARE existe_padre,existe_madre,verificacion_fecha BOOLEAN;
@@ -116,36 +123,40 @@ BEGIN
 
     RETURN 'Ingresado Correctamente';
 END$$
+-- SELECT addNacimiento(1,1,'a','b','c','2020-01-01',101,'M');
+-- SELECT addNacimiento(10000000000308,10000000011103,'a','b','c','2020-01-01',101,'M');
 DELIMITER
--- SELECT addNacimiento15(1,1,'a','b','c','2020-01-01',101,'M');
--- SELECT addNacimiento1(10000000000308,10000000011103,'a','b','c','2020-01-01',101,'M');
 
--- AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA
-    -- DECLARE factorial INT;
+DELIMITER $$
+-- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
+CREATE FUNCTION AddDefuncion(p_cui BIGINT,p_fecha_fallecido DATE,p_motivo TEXT) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE ya_nacio BOOLEAN;
+    DECLARE ya_murio BOOLEAN;
+    DECLARE p_id_persona INT;
 
-    -- -- Guardamos el valor de x
-    -- SET factorial = x ;
+    SET p_id_persona = (SELECT id_persona FROM (SELECT CONCAT(id_persona,LPAD(id_municipio , 4, 0)) AS cui,id_persona FROM persona) existencia_cui WHERE cui = p_cui);
+    SET ya_murio = (SELECT COUNT(id_acta_defuncion) FROM acta_defuncion WHERE id_persona = p_id_persona) > 0;
+    SET ya_nacio = (SELECT DATEDIFF(p_fecha_fallecido, (SELECT fecha_nacimiento FROM persona WHERE id_persona = p_id_persona))) > 0;
 
-    -- -- Caso en que x sea menor o igual a 0
-    -- IF x <= 0 THEN
-    -- RETURN 1;
-    -- END IF;
+    IF p_id_persona IS NULL THEN
+   	    RETURN 'No existe el CUI ingresado';
+    END IF;
 
-    -- -- Iteramos para obtener multiplicaciones
-    -- consecutivas
+    IF NOT ya_nacio THEN
+        RETURN 'La fecha de fallecimiento es menor a la fecha de nacimiento';
+    END IF;
+  
+    IF ya_murio THEN
+   	    RETURN 'Esta persona ya posee un acta de defuncion';
+    END IF;
 
-    -- bucle: LOOP
+    INSERT INTO acta_defuncion (id_persona,fecha_fallecimiento,motivo) 
+    VALUES (p_id_persona,p_fecha_fallecido,p_motivo);
 
-    -- -- Cada iteracion reducimos en 1 a x
-    -- SET x = x - 1 ;
-
-    -- -- Condición de parada del bucle
-    -- IF x<1 THEN
-    -- LEAVE bucle;
-    -- END IF;
-
-    -- -- Factorial parcial
-    -- SET factorial = factorial * x ;
-
-    -- END LOOP bucle;
--- AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA,AYUDA
+    RETURN 'Ingresado Correctamente';
+END$$
+-- SELECT AddDefuncion(1,'2000-10-24','Enfermedad');
+-- SELECT AddDefuncion(10000000000308,'2000-10-22','Enfermedad');
+-- SELECT AddDefuncion(10000000000308,'2020-10-22','Enfermedad');
+DELIMITER
