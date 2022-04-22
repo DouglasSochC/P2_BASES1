@@ -3,6 +3,20 @@ CREATE DATABASE b1_proyecto2;
 https://dev.mysql.com/doc/refman/8.0/en/example-foreign-keys.html
 */
 
+CREATE TABLE tabla_temporal (
+    id_acta_nacimiento TEXT,
+    primer_nombre TEXT,
+    segundo_nombre TEXT,
+    tercer_nombre TEXT,
+    primer_apellido TEXT,
+    segundo_apellido TEXT,
+    genero TEXT,
+    fecha_nacimiento TEXT,
+    id_municipio TEXT,
+    id_padre TEXT,
+    id_madre TEXT
+);
+
 CREATE TABLE departamento(
     id_departamento INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(30) NOT NULL
@@ -15,19 +29,34 @@ CREATE TABLE municipio(
     FOREIGN KEY (id_departamento) REFERENCES departamento(id_departamento)
 );
 
+CREATE TABLE nombre_persona (
+    id_nombre_persona INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre TEXT NOT NULL CHECK (nombre NOT LIKE '%[^a-zA-Z]%')
+);
+
+CREATE TABLE apellido_persona (
+    id_apellido_persona INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    apellido TEXT NOT NULL CHECK (apellido NOT LIKE '%[^a-zA-Z]%')
+);
+
 CREATE TABLE acta_nacimiento (
     id_acta_nacimiento INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    primer_nombre VARCHAR(30) CHECK (primer_nombre NOT LIKE '%[^A-Z]%') NOT NULL,
-    segundo_nombre VARCHAR(30) CHECK (segundo_nombre NOT LIKE '%[^a-zA-Z]%'),
-    tercer_nombre VARCHAR(150) CHECK (tercer_nombre NOT LIKE '%[^a-zA-Z]%'),
-    primer_apellido VARCHAR(30) NOT NULL CHECK (primer_apellido NOT LIKE '%[^a-zA-Z]%'),
-    segundo_apellido VARCHAR(30) CHECK (segundo_apellido NOT LIKE '%[^a-zA-Z]%'),
+    primer_nombre INT UNSIGNED NOT NULL,
+    segundo_nombre INT UNSIGNED,
+    tercer_nombre INT UNSIGNED,
+    primer_apellido INT UNSIGNED NOT NULL,
+    segundo_apellido INT UNSIGNED,
     genero VARCHAR(1) NOT NULL CHECK (genero NOT LIKE '%[M|F]%'),
     fecha_nacimiento DATE NOT NULL,
     id_municipio INT UNSIGNED NOT NULL,
     id_padre BIGINT UNSIGNED,
     id_madre BIGINT UNSIGNED,
-    FOREIGN KEY (id_municipio) REFERENCES municipio (id_municipio)
+    FOREIGN KEY (id_municipio) REFERENCES municipio (id_municipio),
+    FOREIGN KEY (primer_nombre) REFERENCES nombre_persona (id_nombre_persona),
+    FOREIGN KEY (segundo_nombre) REFERENCES nombre_persona (id_nombre_persona),
+    FOREIGN KEY (tercer_nombre) REFERENCES nombre_persona (id_nombre_persona),
+    FOREIGN KEY (primer_apellido) REFERENCES apellido_persona (id_apellido_persona),
+    FOREIGN KEY (segundo_apellido) REFERENCES apellido_persona (id_apellido_persona)
 );
 
 CREATE TABLE estado_civil (
@@ -42,8 +71,6 @@ CREATE TABLE ciudadano(
     FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento),
     FOREIGN KEY (id_estado_civil) REFERENCES estado_civil (id_estado_civil)
 );
-ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_padre` FOREIGN KEY (`id_padre`) REFERENCES `ciudadano` (`dpi`);
-ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_madre` FOREIGN KEY (`id_madre`) REFERENCES `ciudadano` (`dpi`);
 
 CREATE TABLE acta_defuncion (
     id_acta_defuncion INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -57,44 +84,37 @@ CREATE TABLE acta_matrimonio (
     id_acta_matrimonio BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     dpi_hombre BIGINT UNSIGNED NOT NULL,
     dpi_mujer BIGINT UNSIGNED NOT NULL,
+    fecha_matrimonio DATE NOT NULL,
+    estado BOOLEAN NOT NULL,
     FOREIGN KEY (dpi_hombre) REFERENCES ciudadano (dpi),
     FOREIGN KEY (dpi_mujer) REFERENCES ciudadano (dpi)
 );
 
--- CREATE TABLE acta_divorcio(
---     id_acta_divorcio BIGINT UNSIGNED PRIMARY KEY,
---     id_ciudadano_1 BIGINT UNSIGNED NOT NULL,
---     id_ciudadano_2 BIGINT UNSIGNED NOT NULL,
---     FOREIGN KEY (id_ciudadano_1) REFERENCES ciudadano (id_ciudadano),
---     FOREIGN KEY (id_ciudadano_2) REFERENCES ciudadano (id_ciudadano)
--- );
+CREATE TABLE acta_divorcio(
+    id_acta_divorcio BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_acta_matrimonio BIGINT UNSIGNED NOT NULL,
+    fecha_divorcio DATE NOT NULL,
+    FOREIGN KEY (id_acta_matrimonio) REFERENCES acta_matrimonio (id_acta_matrimonio)
+);
 
--- CREATE TABLE tipo_licencia (
---     id_tipo_licencia INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
---     nombre VARCHAR(30) NOT NULL,
---     cantidad_carga DOUBLE NOT NULL,
---     minimo_edad INT NOT NULL,
---     descripcion VARCHAR(200) NOT NULL
--- );
-
--- CREATE TABLE licencia_ciudadano(
---     id_licencia_ciudadano INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
---     id_ciudadano INT UNSIGNED,
---     id_tipo_licencia INT UNSIGNED,
---     fecha_emision DATE NOT NULL,
---     FOREIGN KEY (id_ciudadano) REFERENCES ciudadano (id_ciudadano),
---     FOREIGN KEY (id_tipo_licencia) REFERENCES tipo_licencia (id_tipo_licencia),
-
--- );
-
+-- ALTER TABLES
+ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_padre` FOREIGN KEY (`id_padre`) REFERENCES `ciudadano` (`dpi`);
+ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_madre` FOREIGN KEY (`id_madre`) REFERENCES `ciudadano` (`dpi`);
 ALTER TABLE acta_nacimiento AUTO_INCREMENT=1000000000;
+ALTER TABLE acta_matrimonio AUTO_INCREMENT=1000;
+ALTER TABLE acta_divorcio AUTO_INCREMENT=1000;
 ALTER TABLE departamento AUTO_INCREMENT=10;
 ALTER TABLE municipio AUTO_INCREMENT=10;
 
--- PROCEDIMIENTOS
+-- FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES --
+-- FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES --
+-- FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES FUNCIONES --
 
--- Se obtiene el id del acta de nacimiento a traves del CUI generado con su id_municipio
+-- NOTAS:
+-- 1. El formato de fecha utilizado en las funciones es de yyyy-mm-dd
+
 DELIMITER $$
+-- Se obtiene el id del acta de nacimiento a traves del CUI generado con el 'id_acta_nacimiento' + 'id_municipio'
 CREATE FUNCTION obtenerIDAN(p_cui BIGINT) RETURNS INT DETERMINISTIC
 BEGIN
     DECLARE respuesta INT;
@@ -103,17 +123,30 @@ BEGIN
 END$$
 DELIMITER
 
--- FUNCIONES
+DELIMITER $$
+-- Retorna el id del nombre de una persona, en el caso que no exista el nombre este se ingresa
+CREATE FUNCTION idNombrePersona(p_nombre TEXT) RETURNS INT DETERMINISTIC
+BEGIN
+    DECLARE respuesta INT;
+    SET respuesta = (SELECT id_nombre_persona FROM nombre_persona WHERE nombre = p_nombre);
+
+    IF respuesta IS NULL THEN
+        INSERT INTO nombre_persona (nombre) VALUES (p_nombre);
+        SET respuesta = (SELECT LAST_INSERT_ID());
+    END IF;
+
+    RETURN respuesta;
+END$$
+DELIMITER
 
 DELIMITER $$
--- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
-CREATE FUNCTION addNacimiento(p_dpi_padre BIGINT,p_dpi_madre BIGINT,primer_nombre VARCHAR(30),segundo_nombre VARCHAR(30),tercer_nombre VARCHAR(150),fecha_nacimiento DATE,id_municipio INT,p_genero VARCHAR(1)) RETURNS TEXT DETERMINISTIC
+CREATE FUNCTION addNacimiento(p_dpi_padre BIGINT,p_dpi_madre BIGINT,p_primer_nombre VARCHAR(30),p_segundo_nombre VARCHAR(30),p_tercer_nombre VARCHAR(150),p_fecha_nacimiento DATE,p_id_municipio INT,p_genero VARCHAR(1)) RETURNS TEXT DETERMINISTIC
 BEGIN
     DECLARE existe_padre,existe_madre,verificacion_fecha BOOLEAN;
-    DECLARE p_apellido,s_apellido VARCHAR(30);
+    DECLARE p_primer_apellido,p_segundo_apellido INT;
     SET existe_padre = (SELECT COUNT(id_acta_nacimiento) FROM acta_nacimiento WHERE acta_nacimiento.id_acta_nacimiento = (SELECT obtenerIDAN(p_dpi_padre)) AND acta_nacimiento.genero = 'M') > 0;
     SET existe_madre = (SELECT COUNT(id_acta_nacimiento) FROM acta_nacimiento WHERE acta_nacimiento.id_acta_nacimiento = (SELECT obtenerIDAN(p_dpi_madre)) AND acta_nacimiento.genero = 'F') > 0;
-    SET verificacion_fecha = (SELECT DATEDIFF(NOW(), fecha_nacimiento)) >= 0;   
+    SET verificacion_fecha = (SELECT DATEDIFF(NOW(), p_fecha_nacimiento)) >= 0;   
 
     IF NOT existe_padre THEN
    	    RETURN 'DPI del padre invalido';
@@ -127,40 +160,54 @@ BEGIN
         RETURN 'No se pueden registrar nacimientos con una fecha posterior a la fecha de registro';
     END IF;
     
-    SET p_apellido = (SELECT primer_apellido FROM acta_nacimiento INNER JOIN ciudadano ON (ciudadano.id_acta_nacimiento = acta_nacimiento.id_acta_nacimiento) WHERE ciudadano.dpi = p_dpi_padre);
-    SET s_apellido = (SELECT primer_apellido FROM acta_nacimiento INNER JOIN ciudadano ON (ciudadano.id_acta_nacimiento = acta_nacimiento.id_acta_nacimiento) WHERE ciudadano.dpi = p_dpi_madre);
+    SET p_primer_apellido = (SELECT primer_apellido FROM acta_nacimiento WHERE id_acta_nacimiento = (SELECT obtenerIDAN(p_dpi_padre)));
+    SET p_segundo_apellido = (SELECT primer_apellido FROM acta_nacimiento WHERE id_acta_nacimiento = (SELECT obtenerIDAN(p_dpi_madre)));
 
-    INSERT INTO acta_nacimiento (primer_nombre,segundo_nombre,tercer_nombre,primer_apellido,segundo_apellido,genero,fecha_nacimiento,id_municipio,id_padre,id_madre) 
-    VALUES (primer_nombre,segundo_nombre,tercer_nombre,p_apellido,s_apellido,p_genero,fecha_nacimiento,id_municipio,p_dpi_padre,p_dpi_madre);
+    INSERT INTO acta_nacimiento (
+        primer_nombre,
+        segundo_nombre,
+        tercer_nombre,
+        primer_apellido,
+        segundo_apellido,
+        genero,fecha_nacimiento,id_municipio,id_padre,id_madre
+    ) 
+    VALUES (
+        (SELECT idNombrePersona(p_primer_nombre)),
+        (SELECT idNombrePersona(p_segundo_nombre)),
+        (SELECT idNombrePersona(p_tercer_nombre)),
+        p_primer_apellido,
+        p_segundo_apellido,
+        p_genero,p_fecha_nacimiento,p_id_municipio,p_dpi_padre,p_dpi_madre);
 
     RETURN 'Ingresado Correctamente';
 END$$
--- SELECT addNacimiento(1,1,'a','b','c','2020-01-01',101,'M');
--- SELECT addNacimiento(10000000000308,10000000011103,'a','b','c','2020-01-01',101,'M');
 DELIMITER
 
 DELIMITER $$
--- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
 CREATE FUNCTION AddDefuncion(p_cui BIGINT,p_fecha_fallecido DATE,p_motivo TEXT) RETURNS TEXT DETERMINISTIC
 BEGIN
-    DECLARE ya_nacio BOOLEAN;
-    DECLARE ya_murio BOOLEAN;
+    DECLARE ya_nacio,ya_murio,esta_casado BOOLEAN;
     DECLARE p_id_acta_nacimiento INT;
 
     SET p_id_acta_nacimiento = (SELECT obtenerIDAN (p_cui));
-    SET ya_murio = (SELECT COUNT(id_acta_defuncion) FROM acta_defuncion WHERE id_acta_nacimiento = p_id_acta_nacimiento) > 0;
-    SET ya_nacio = (SELECT DATEDIFF(p_fecha_fallecido, (SELECT fecha_nacimiento FROM acta_nacimiento WHERE id_acta_nacimiento = p_id_acta_nacimiento))) > 0;
-
     IF p_id_acta_nacimiento IS NULL THEN
    	    RETURN 'No existe el CUI ingresado';
     END IF;
 
+    SET ya_nacio = (SELECT DATEDIFF(p_fecha_fallecido, (SELECT fecha_nacimiento FROM acta_nacimiento WHERE id_acta_nacimiento = p_id_acta_nacimiento))) > 0;
     IF NOT ya_nacio THEN
         RETURN 'La fecha de fallecimiento es menor a la fecha de nacimiento';
     END IF;
   
+    SET ya_murio = (SELECT COUNT(id_acta_defuncion) FROM acta_defuncion WHERE id_acta_nacimiento = p_id_acta_nacimiento) > 0;
     IF ya_murio THEN
-   	    RETURN 'Esta acta_nacimiento ya posee un acta de defuncion';
+   	    RETURN 'Esta persona ya posee un acta de defuncion';
+    END IF;
+
+    SET esta_casado = (SELECT COUNT(dpi) FROM ciudadano WHERE dpi = p_cui AND id_estado_civil = 'C') = 1;
+    IF esta_casado THEN
+        UPDATE ciudadano SET id_estado_civil = 'V' WHERE dpi = (SELECT dpi_mujer FROM acta_matrimonio WHERE dpi_hombre = p_cui AND estado = TRUE);
+        UPDATE ciudadano SET id_estado_civil = 'V' WHERE dpi = (SELECT dpi_hombre FROM acta_matrimonio WHERE dpi_mujer = p_cui AND estado = TRUE);
     END IF;
 
     INSERT INTO acta_defuncion (id_acta_nacimiento,fecha_fallecimiento,motivo) 
@@ -168,12 +215,9 @@ BEGIN
 
     RETURN 'Ingresado Correctamente';
 END$$
--- SELECT AddDefuncion(1,'2000-10-24','Enfermedad');
--- SELECT AddDefuncion(10000000000308,'2000-10-22','Enfermedad');
 DELIMITER
 
 DELIMITER $$
--- El formato de fecha utilizado en esta funcion es de yyyy-mm-dd
 CREATE FUNCTION AddMatrimonio(p_dpi_hombre BIGINT,p_dpi_mujer BIGINT,p_fecha_matrimonio DATE) RETURNS TEXT DETERMINISTIC
 BEGIN
     DECLARE posee_dpi_hombre,posee_dpi_mujer,es_hombre,es_mujer,hombre_fallecido,mujer_fallecida,hombre_casado,mujer_casada BOOLEAN;
@@ -210,13 +254,60 @@ BEGIN
         RETURN 'La mujer tiene un matrimonio activo';
     END IF;
     
-    INSERT INTO acta_matrimonio (dpi_hombre,dpi_mujer) 
-    VALUES (p_dpi_hombre,p_dpi_mujer);
+    INSERT INTO acta_matrimonio (dpi_hombre,dpi_mujer,fecha_matrimonio,estado) 
+    VALUES (p_dpi_hombre,p_dpi_mujer,p_fecha_matrimonio,TRUE);
 
     UPDATE ciudadano SET id_estado_civil = 'C' WHERE dpi IN (p_dpi_hombre,p_dpi_mujer);
 
     RETURN 'Ingresado Correctamente';
 END$$
--- SELECT AddMatrimonio(1,1,'2000-10-24');
--- SELECT AddMatrimonio(10000000000308,'2000-10-22','Enfermedad');
+DELIMITER
+
+DELIMITER $$
+CREATE FUNCTION AddDivorcio(p_id_acta_matrimonio INT,p_fecha_divorcio DATE) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE existe_acta_matrimonio,es_matrimonio_activo,verificacion_fecha BOOLEAN;
+
+    SET existe_acta_matrimonio = (SELECT COUNT(id_acta_matrimonio) FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio) = 1;
+    IF NOT existe_acta_matrimonio THEN
+   	    RETURN 'No existe el acta de matrimonio ingresado';
+    END IF;
+
+    SET es_matrimonio_activo = (SELECT COUNT(id_acta_matrimonio) FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio AND estado = TRUE) = 1;
+    IF NOT es_matrimonio_activo THEN
+        RETURN 'No es un matrimonio activo, por lo tanto no se puede realizar el divorcio';
+    END IF;
+    
+    SET verificacion_fecha = (SELECT DATEDIFF(p_fecha_divorcio,(SELECT fecha_matrimonio FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio))) >= 0;
+    IF NOT verificacion_fecha THEN
+        RETURN 'No se puede registrar el divorcio con una fecha anterior a la fecha de matrimonio';
+    END IF;
+
+    INSERT INTO acta_divorcio (id_acta_matrimonio,fecha_divorcio) VALUES (p_id_acta_matrimonio,p_fecha_divorcio);
+    UPDATE ciudadano SET id_estado_civil = 'D' WHERE dpi = (SELECT dpi_hombre FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio);
+    UPDATE ciudadano SET id_estado_civil = 'D' WHERE dpi = (SELECT dpi_mujer FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio);
+    UPDATE acta_matrimonio SET estado = FALSE WHERE id_acta_matrimonio = p_id_acta_matrimonio;
+
+    RETURN 'Ingresado Correctamente';
+END$$
+DELIMITER
+
+-- PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS --
+-- PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS --
+-- PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS --
+
+DELIMITER $$
+CREATE PROCEDURE getDPI(IN p_cui BIGINT)
+BEGIN
+    SELECT p_cui AS CUI,CONCAT(pn.nombre,' ',sn.nombre,' ',tn.nombre) AS nombres,CONCAT(pa.apellido,' ',sa.apellido) AS apellidos,an.fecha_nacimiento,d.nombre AS departamento,m.nombre AS municipio,an.genero 
+    FROM acta_nacimiento an
+    INNER JOIN nombre_persona pn ON pn.id_nombre_persona = an.primer_nombre
+    INNER JOIN nombre_persona sn  ON sn.id_nombre_persona = an.segundo_nombre
+    INNER JOIN nombre_persona tn ON tn.id_nombre_persona = an.tercer_nombre
+    INNER JOIN apellido_persona pa ON pa.id_apellido_persona = an.primer_apellido
+    INNER JOIN apellido_persona sa ON sa.id_apellido_persona = an.segundo_apellido
+    INNER JOIN municipio m ON m.id_municipio = an.id_municipio
+    INNER JOIN departamento d ON d.id_departamento = m.id_departamento 
+    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+END$$
 DELIMITER

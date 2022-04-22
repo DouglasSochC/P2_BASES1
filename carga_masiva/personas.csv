@@ -1,4 +1,4 @@
-id_persona,primer_nombre,segundo_nombre,tercer_nombre,primer_apellido,segundo_apellido,genero,fecha_nacimiento,id_municipio,id_padre,id_madre
+id_acta_nacimiento,primer_nombre,segundo_nombre,tercer_nombre,primer_apellido,segundo_apellido,genero,fecha_nacimiento,id_municipio,id_padre,id_madre
 1000000000,Giacobo,Lauren,Irv,Wisam,Haresnaip,M,2010-07-12,1313,,
 1000000001,Ward,Dallon,Linoel,Brettelle,Collingham,M,2019-07-24,2003,,
 1000000002,Pren,Dennet,Cirilo,Schaben,Malshinger,M,1955-12-16,1407,,
