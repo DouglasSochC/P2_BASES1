@@ -68,8 +68,10 @@ CREATE TABLE ciudadano(
     dpi BIGINT UNSIGNED PRIMARY KEY,
     id_acta_nacimiento INT UNSIGNED NOT NULL,
     id_estado_civil VARCHAR(1) NOT NULL,
+    id_municipio_residencia INT UNSIGNED NOT NULL,
     FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento),
-    FOREIGN KEY (id_estado_civil) REFERENCES estado_civil (id_estado_civil)
+    FOREIGN KEY (id_estado_civil) REFERENCES estado_civil (id_estado_civil),
+    FOREIGN KEY (id_municipio_residencia) REFERENCES municipio (id_municipio)
 );
 
 CREATE TABLE acta_defuncion (

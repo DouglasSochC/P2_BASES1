@@ -44,8 +44,8 @@ SELECT
 FROM tabla_temporal tt;
 
 -- Ingresar las personas en la tabla de ciudadanos en el caso que sean >= 18 anios
-INSERT INTO ciudadano (dpi,id_acta_nacimiento,id_estado_civil)
-SELECT CONCAT(id_acta_nacimiento,LPAD(id_municipio , 4, 0)) AS dpi,id_acta_nacimiento,'S' FROM acta_nacimiento
+INSERT INTO ciudadano (dpi,id_acta_nacimiento,id_estado_civil,id_municipio_residencia)
+SELECT CONCAT(id_acta_nacimiento,LPAD(id_municipio , 4, 0)) AS dpi,id_acta_nacimiento,'S',id_municipio FROM acta_nacimiento
 WHERE YEAR(NOW()) - YEAR(fecha_nacimiento) >= 18;
 
 -- Ingresar las personas en la tabla acta_defuncion en el caso que sean >= 75 anios
