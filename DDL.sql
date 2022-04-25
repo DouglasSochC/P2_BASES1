@@ -69,6 +69,7 @@ CREATE TABLE ciudadano(
     id_acta_nacimiento INT UNSIGNED NOT NULL,
     id_estado_civil VARCHAR(1) NOT NULL,
     id_municipio_residencia INT UNSIGNED NOT NULL,
+    fecha_emision DATE NOT NULL,
     FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento),
     FOREIGN KEY (id_estado_civil) REFERENCES estado_civil (id_estado_civil),
     FOREIGN KEY (id_municipio_residencia) REFERENCES municipio (id_municipio)
@@ -290,6 +291,40 @@ BEGIN
     UPDATE ciudadano SET id_estado_civil = 'D' WHERE dpi = (SELECT dpi_mujer FROM acta_matrimonio WHERE id_acta_matrimonio = p_id_acta_matrimonio);
     UPDATE acta_matrimonio SET estado = FALSE WHERE id_acta_matrimonio = p_id_acta_matrimonio;
 
+    RETURN 'Ingresado Correctamente';
+END$$
+DELIMITER
+
+
+DELIMITER $$
+CREATE FUNCTION generarDPI(p_cui BIGINT,p_fecha_emision DATE,p_id_municipio INT) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE v_id_acta_nacimiento,v_id_municipio INT;
+    DECLARE ya_es_mayor_18,ya_tiene_dpi BOOLEAN;
+
+    SET v_id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+    IF v_id_acta_nacimiento IS NULL THEN
+   	    RETURN 'No existe el CUI ingresado';
+    END IF;
+
+    SET v_id_municipio = (SELECT id_municipio FROM municipio WHERE id_municipio = p_id_municipio);
+    IF v_id_municipio IS NULL THEN
+        RETURN 'El municipio que ha ingresado no existe';
+    END IF;
+    
+    SET ya_tiene_dpi = (SELECT COUNT(dpi) FROM ciudadano WHERE dpi = p_cui) > 0;
+    IF ya_tiene_dpi THEN
+        RETURN 'Ya se ha generado con anterioridad el DPI del CUI ingresado';
+    END IF;
+
+    SET ya_es_mayor_18 = (SELECT COUNT(id_acta_nacimiento) FROM acta_nacimiento WHERE YEAR(NOW()) - YEAR(fecha_nacimiento) >= 18 AND id_acta_nacimiento = (SELECT obtenerIDAN(p_cui)));
+    IF NOT ya_es_mayor_18 THEN
+        RETURN 'La persona con el CUI ingresado no es mayor o igual a 18 años';
+    END IF;
+
+    INSERT INTO ciudadano (dpi,id_acta_nacimiento,id_estado_civil,id_municipio_residencia,fecha_emision) 
+    VALUES (p_cui,v_id_acta_nacimiento,'S',p_id_municipio,p_fecha_emision);
+    
     RETURN 'Ingresado Correctamente';
 END$$
 DELIMITER
