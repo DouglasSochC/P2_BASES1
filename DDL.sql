@@ -100,12 +100,36 @@ CREATE TABLE acta_divorcio(
     FOREIGN KEY (id_acta_matrimonio) REFERENCES acta_matrimonio (id_acta_matrimonio)
 );
 
+CREATE TABLE tipo_licencia (
+    id_tipo_licencia VARCHAR(1) NOT NULL PRIMARY KEY,
+    descripcion TEXT NOT NULL,
+    restriccion TEXT NOT NULL
+);
+
+CREATE TABLE licencia_conducir (
+    id_licencia_conducir INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    licencia_anulada BOOLEAN NOT NULL,
+    id_acta_nacimiento INT UNSIGNED NOT NULL,
+    FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento)
+);
+
+CREATE TABLE detalle_licencia_conducir (
+    id_detalle_licencia_conducir INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    fecha_emision DATE NOT NULL,
+    fecha_renovacion DATE NOT NULL,
+    id_tipo_licencia VARCHAR(1) NOT NULL,
+    id_licencia_conducir INT UNSIGNED NOT NULL,
+    FOREIGN KEY (id_tipo_licencia) REFERENCES tipo_licencia (id_tipo_licencia),
+    FOREIGN KEY (id_licencia_conducir) REFERENCES licencia_conducir (id_licencia_conducir)
+);
+
 -- ALTER TABLES
 ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_padre` FOREIGN KEY (`id_padre`) REFERENCES `ciudadano` (`dpi`);
 ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_madre` FOREIGN KEY (`id_madre`) REFERENCES `ciudadano` (`dpi`);
 ALTER TABLE acta_nacimiento AUTO_INCREMENT=1000000000;
 ALTER TABLE acta_matrimonio AUTO_INCREMENT=1000;
 ALTER TABLE acta_divorcio AUTO_INCREMENT=1000;
+ALTER TABLE licencia_conducir AUTO_INCREMENT=1000;
 ALTER TABLE departamento AUTO_INCREMENT=10;
 ALTER TABLE municipio AUTO_INCREMENT=10;
 
@@ -138,6 +162,17 @@ BEGIN
         SET respuesta = (SELECT LAST_INSERT_ID());
     END IF;
 
+    RETURN respuesta;
+END$$
+DELIMITER
+
+DELIMITER $$
+-- Retorna el id de la licencia que ha sido insertada
+CREATE FUNCTION crearLicencia(p_id_acta_nacimiento INT) RETURNS INT DETERMINISTIC
+BEGIN
+    DECLARE respuesta INT;
+    INSERT INTO licencia_conducir (licencia_anulada,id_acta_nacimiento) VALUES (FALSE,p_id_acta_nacimiento);
+    SET respuesta = (SELECT LAST_INSERT_ID());
     RETURN respuesta;
 END$$
 DELIMITER
@@ -223,7 +258,7 @@ DELIMITER
 DELIMITER $$
 CREATE FUNCTION AddMatrimonio(p_dpi_hombre BIGINT,p_dpi_mujer BIGINT,p_fecha_matrimonio DATE) RETURNS TEXT DETERMINISTIC
 BEGIN
-    DECLARE posee_dpi_hombre,posee_dpi_mujer,es_hombre,es_mujer,hombre_fallecido,mujer_fallecida,hombre_casado,mujer_casada BOOLEAN;
+    DECLARE fecha_valida,posee_dpi_hombre,posee_dpi_mujer,es_hombre,es_mujer,hombre_fallecido,mujer_fallecida,hombre_casado,mujer_casada BOOLEAN;
     
     SET posee_dpi_hombre = (SELECT COUNT(dpi) FROM ciudadano WHERE dpi = p_dpi_hombre) = 1;
     SET posee_dpi_mujer = (SELECT COUNT(dpi) FROM ciudadano WHERE dpi = p_dpi_mujer) = 1;
@@ -255,6 +290,11 @@ BEGIN
         RETURN 'El hombre tiene un matrimonio activo';
     ELSEIF mujer_casada THEN
         RETURN 'La mujer tiene un matrimonio activo';
+    END IF;
+
+    SET fecha_valida = (SELECT COUNT(dpi) FROM ciudadano WHERE dpi IN (p_dpi_hombre,p_dpi_mujer) AND fecha_emision <= p_fecha_matrimonio) = 2;
+    IF NOT fecha_valida THEN
+        RETURN 'La fecha de matrimonio ingresada es invalida debido a que alguna de las dos personas no poseia DPI para esa fecha';
     END IF;
     
     INSERT INTO acta_matrimonio (dpi_hombre,dpi_mujer,fecha_matrimonio,estado) 
@@ -295,6 +335,46 @@ BEGIN
 END$$
 DELIMITER
 
+DELIMITER $$
+CREATE FUNCTION AddLicencia(p_cui BIGINT,p_fecha_emision DATE,p_id_tipo_licencia VARCHAR(1)) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE edad_suficiente,ya_tiene_licencia BOOLEAN;
+    DECLARE v_id_tipo_licencia VARCHAR(1);
+    DECLARE v_id_acta_nacimiento,v_id_licencia_conducir INT;
+
+    SET v_id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+    IF v_id_acta_nacimiento IS NULL THEN
+        RETURN 'El CUI ingresado es invalido';
+    END IF;
+    
+    SET edad_suficiente = (DATE(NOW()) - DATE_ADD((SELECT fecha_nacimiento FROM acta_nacimiento WHERE id_acta_nacimiento = (SELECT obtenerIDAN(p_cui))), INTERVAL 16 YEAR)) >= 0;
+    IF NOT edad_suficiente THEN
+        RETURN 'La persona aun no tiene permitido obtener una licencia de conducir';
+    END IF;  
+
+    IF NOT (p_id_tipo_licencia = 'E' OR p_id_tipo_licencia = 'C' OR p_id_tipo_licencia = 'M') THEN
+        RETURN 'El tipo de licencia no es valido';
+    END IF;    
+
+    SET ya_tiene_licencia = (SELECT COUNT(lc.id_licencia_conducir) FROM licencia_conducir lc INNER JOIN detalle_licencia_conducir dlc ON lc.id_licencia_conducir = dlc.id_licencia_conducir WHERE lc.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui)) AND dlc.id_tipo_licencia = p_id_tipo_licencia) > 0;
+    IF ya_tiene_licencia THEN
+   	    RETURN 'La persona ya tiene o ya ha tenido una licencia de conducir de este tipo';
+    END IF;
+
+    IF p_id_tipo_licencia != 'E' THEN
+        SET v_id_tipo_licencia = (SELECT dlc.id_tipo_licencia FROM licencia_conducir lc INNER JOIN detalle_licencia_conducir dlc ON dlc.id_licencia_conducir = lc.id_licencia_conducir WHERE lc.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui)) AND dlc.id_tipo_licencia != 'E');
+        IF v_id_tipo_licencia IS NOT NULL THEN
+            RETURN 'Ya ha poseido al menos una vez estos tipos de licencia: C,M; Por lo tanto solo renuevela';
+        END IF;
+    END IF;
+
+    SET v_id_licencia_conducir = (SELECT crearLicencia((SELECT obtenerIDAN(p_cui))));
+    INSERT INTO detalle_licencia_conducir (fecha_emision,fecha_renovacion,id_tipo_licencia,id_licencia_conducir) 
+    VALUES (p_fecha_emision,DATE_ADD(p_fecha_emision, INTERVAL 1 YEAR),p_id_tipo_licencia,v_id_licencia_conducir);
+
+    RETURN 'Ingresado Correctamente';
+END$$
+DELIMITER
 
 DELIMITER $$
 CREATE FUNCTION generarDPI(p_cui BIGINT,p_fecha_emision DATE,p_id_municipio INT) RETURNS TEXT DETERMINISTIC
