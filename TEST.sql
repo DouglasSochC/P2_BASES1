@@ -28,6 +28,13 @@ SELECT AddLicencia(10000001190505,'2020-01-06','X'); -- Error tipo de licencia n
 SELECT AddLicencia(10000000060116,'2020-01-06','C'); -- Error ya ha tenido el tipo de licencia
 SELECT AddLicencia(10000009980513,'2021-10-20','C'); -- Error licencias mutuamente excluyentes
 
+-- Anular Licencia
+SELECT anularLicencia(1,'2023-01-01','Se paso un rojo'); -- Error numero de licencia no existe
+SELECT anularLicencia(1019,'2021-01-01','Se paso un rojo'); -- Error fecha de anulacion
+SELECT anularLicencia(1019,'2023-01-01','Se paso un rojo'); -- Correcto
+SELECT anularLicencia(1019,'2022-12-01','Se paso un rojo'); -- Error ya que ya ha sido anulado con anterioridad y la fecha es menor a la ya asignada
+SELECT anularLicencia(1019,'2024-12-02','Se paso un rojo'); -- Correcto
+
 -- Generar DPI
 SELECT generarDPI(1,'2020-01-06',101); -- Error No existe el CUI
 SELECT generarDPI(10000000021407,'2020-01-06',1); -- Error No existe el id_municipio

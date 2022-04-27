@@ -108,8 +108,8 @@ CREATE TABLE tipo_licencia (
 
 CREATE TABLE licencia_conducir (
     id_licencia_conducir INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    licencia_anulada BOOLEAN NOT NULL,
     fecha_anulacion DATE,
+    motivo_anulacion TEXT,
     id_acta_nacimiento INT UNSIGNED NOT NULL,
     FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento)
 );
@@ -172,7 +172,7 @@ DELIMITER $$
 CREATE FUNCTION crearLicencia(p_id_acta_nacimiento INT) RETURNS INT DETERMINISTIC
 BEGIN
     DECLARE respuesta INT;
-    INSERT INTO licencia_conducir (licencia_anulada,id_acta_nacimiento) VALUES (FALSE,p_id_acta_nacimiento);
+    INSERT INTO licencia_conducir (id_acta_nacimiento) VALUES (p_id_acta_nacimiento);
     SET respuesta = (SELECT LAST_INSERT_ID());
     RETURN respuesta;
 END$$
@@ -374,6 +374,37 @@ BEGIN
     VALUES (p_fecha_emision,DATE_ADD(p_fecha_emision, INTERVAL 1 YEAR),p_id_tipo_licencia,v_id_licencia_conducir);
 
     RETURN 'Ingresado Correctamente';
+END$$
+DELIMITER
+
+DELIMITER $$
+CREATE FUNCTION anularLicencia(p_id_licencia_conducir INT,p_fecha_anulacion DATE,p_motivo_anulacion TEXT) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE v_id_licencia_conducir INT;
+    DECLARE v_fecha_anulacion DATE;
+    DECLARE v_fecha_correcta,verificacion_fecha BOOLEAN;
+
+    SET v_id_licencia_conducir = (SELECT id_licencia_conducir FROM licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir);
+    IF v_id_licencia_conducir IS NULL THEN
+        RETURN 'El numero de la licencia no existe';
+    END IF;
+    
+    SET verificacion_fecha = (SELECT DATEDIFF(p_fecha_anulacion,NOW())) >= 0;  
+    IF NOT verificacion_fecha THEN
+        RETURN 'La fecha de anulacion ingresada debe de ser mayor al dia de hoy';
+    END IF;
+    
+    SET v_fecha_anulacion = (SELECT fecha_anulacion FROM licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir);
+    IF v_fecha_anulacion IS NOT NULL THEN
+        SET v_fecha_correcta = (p_fecha_anulacion >= v_fecha_anulacion);
+        IF NOT v_fecha_correcta THEN
+            RETURN 'Esta licencia ya ha sido anulada con anterioridad, la nueva fecha de anulacion es menor a la que ya poseia';
+        END IF;  
+    END IF;
+    
+    UPDATE licencia_conducir SET fecha_anulacion = p_fecha_anulacion, motivo_anulacion = p_motivo_anulacion WHERE id_licencia_conducir = p_id_licencia_conducir;
+    RETURN 'Ingresado Correctamente';
+
 END$$
 DELIMITER
 
