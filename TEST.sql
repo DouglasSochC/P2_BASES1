@@ -28,10 +28,10 @@ SELECT AddLicencia(10000001190505,'2020-01-06','X'); -- Error tipo de licencia n
 SELECT AddLicencia(10000000060116,'2020-01-06','C'); -- Error ya ha tenido el tipo de licencia
 SELECT AddLicencia(10000009980513,'2021-10-20','C'); -- Error licencias mutuamente excluyentes
 
--- IF p_id_tipo_licencia != 'E' THEN
---     SET v_id_tipo_licencia = (SELECT dlc.id_tipo_licencia FROM licencia_conducir lc INNER JOIN detalle_licencia_conducir dlc ON dlc.id_licencia_conducir = lc.id_licencia_conducir WHERE lc.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui)) AND (dlc.fecha_renovacion - DATE(NOW())) >= 0 AND dlc.id_tipo_licencia != 'E');
---     SET v_id_tipo_licencia = IF((v_id_tipo_licencia = 'A' OR v_id_tipo_licencia = 'B' OR v_id_tipo_licencia = 'C'),'C',v_id_tipo_licencia);
---     IF (v_id_tipo_licencia = 'M' AND p_id_tipo_licencia = 'C') OR (v_id_tipo_licencia = 'C' AND p_id_tipo_licencia = 'M') THEN
---         RETURN 'Ya posee una licencia activa que es mutuamente excluyente a la que desea generar actualmente';
---     END IF;
--- END IF;
+-- Generar DPI
+SELECT generarDPI(1,'2020-01-06',101); -- Error No existe el CUI
+SELECT generarDPI(10000000021407,'2020-01-06',1); -- Error No existe el id_municipio
+SELECT generarDPI(10000000021407,'2020-01-06',101); -- Error Ya se ha generado el CUI con anterioridad
+SELECT generarDPI(10000000012003,'2020-01-06',101); -- Error No se puede generar porque todavia no >= 18
+SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2000-01-01',101,'M');
+SELECT generarDPI(10000020000101,'2020-01-06',101); -- Correcto pero tiene que ejecutarse el addNacimiento de arriba

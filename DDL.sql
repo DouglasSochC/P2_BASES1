@@ -109,6 +109,7 @@ CREATE TABLE tipo_licencia (
 CREATE TABLE licencia_conducir (
     id_licencia_conducir INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     licencia_anulada BOOLEAN NOT NULL,
+    fecha_anulacion DATE,
     id_acta_nacimiento INT UNSIGNED NOT NULL,
     FOREIGN KEY (id_acta_nacimiento) REFERENCES acta_nacimiento (id_acta_nacimiento)
 );
