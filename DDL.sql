@@ -116,8 +116,8 @@ CREATE TABLE licencia_conducir (
 
 CREATE TABLE detalle_licencia_conducir (
     id_detalle_licencia_conducir INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    fecha_emision DATE NOT NULL,
     fecha_renovacion DATE NOT NULL,
+    fecha_vencimiento DATE NOT NULL,
     id_tipo_licencia VARCHAR(1) NOT NULL,
     id_licencia_conducir INT UNSIGNED NOT NULL,
     FOREIGN KEY (id_tipo_licencia) REFERENCES tipo_licencia (id_tipo_licencia),
@@ -174,6 +174,20 @@ BEGIN
     DECLARE respuesta INT;
     INSERT INTO licencia_conducir (id_acta_nacimiento) VALUES (p_id_acta_nacimiento);
     SET respuesta = (SELECT LAST_INSERT_ID());
+    RETURN respuesta;
+END$$
+DELIMITER
+
+DELIMITER $$
+-- Retorna la nueva fecha de vencimiento segun sus parametros; Este metodo es utilizado en la renovacion de licencia
+CREATE FUNCTION obtenerNuevaFechaVencimiento(p_fecha_vencimiento_anterior DATE,p_fecha_emision_actual DATE,cantidad_anios TINYINT) RETURNS DATE DETERMINISTIC
+BEGIN
+    DECLARE respuesta DATE;
+    IF p_fecha_vencimiento_anterior >= p_fecha_emision_actual THEN
+        SET respuesta = DATE_ADD(p_fecha_vencimiento_anterior, INTERVAL cantidad_anios YEAR);
+    ELSE
+        SET respuesta = DATE_ADD(p_fecha_emision_actual, INTERVAL cantidad_anios YEAR);
+    END IF;
     RETURN respuesta;
 END$$
 DELIMITER
@@ -337,7 +351,7 @@ END$$
 DELIMITER
 
 DELIMITER $$
-CREATE FUNCTION AddLicencia(p_cui BIGINT,p_fecha_emision DATE,p_id_tipo_licencia VARCHAR(1)) RETURNS TEXT DETERMINISTIC
+CREATE FUNCTION AddLicencia(p_cui BIGINT,p_fecha_renovacion DATE,p_id_tipo_licencia VARCHAR(1)) RETURNS TEXT DETERMINISTIC
 BEGIN
     DECLARE edad_suficiente,ya_tiene_licencia BOOLEAN;
     DECLARE v_id_tipo_licencia VARCHAR(1);
@@ -370,9 +384,79 @@ BEGIN
     END IF;
 
     SET v_id_licencia_conducir = (SELECT crearLicencia((SELECT obtenerIDAN(p_cui))));
-    INSERT INTO detalle_licencia_conducir (fecha_emision,fecha_renovacion,id_tipo_licencia,id_licencia_conducir) 
-    VALUES (p_fecha_emision,DATE_ADD(p_fecha_emision, INTERVAL 1 YEAR),p_id_tipo_licencia,v_id_licencia_conducir);
+    INSERT INTO detalle_licencia_conducir (fecha_renovacion,fecha_vencimiento,id_tipo_licencia,id_licencia_conducir) 
+    VALUES (p_fecha_renovacion,DATE_ADD(p_fecha_renovacion, INTERVAL 1 YEAR),p_id_tipo_licencia,v_id_licencia_conducir);
 
+    RETURN 'Ingresado Correctamente';
+END$$
+DELIMITER
+
+DELIMITER $$
+CREATE FUNCTION renewLicencia(p_id_licencia_conducir INT,p_fecha_renovacion DATE,p_id_tipo_licencia VARCHAR(1),cantidad_anios TINYINT) RETURNS TEXT DETERMINISTIC
+BEGIN
+    DECLARE v_id_licencia_conducir,v_cantidad_anios_licencia,v_mayor_23,v_mayor_25 INT;
+    DECLARE v_fecha_vencimiento,v_nueva_fecha_vencimiento DATE;
+    DECLARE verificacion_fecha,licencia_anulada BOOLEAN;
+
+    IF NOT (cantidad_anios >= 1 AND cantidad_anios <= 5) THEN
+        RETURN 'Error: El rango de fecha que puede renovar es de 1 a 5 años';
+    END IF;
+
+    SET v_id_licencia_conducir = (SELECT id_licencia_conducir FROM licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir);
+    IF v_id_licencia_conducir IS NULL THEN
+        RETURN 'Error: El numero de la licencia no existe';
+    END IF;
+    
+    SET licencia_anulada = (SELECT DATEDIFF(fecha_anulacion,NOW()) FROM licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir) >= 0;
+    IF licencia_anulada THEN
+        RETURN 'Error: La licencia esta anulada por lo tanto no la puede renovar';
+    END IF;
+
+    SET verificacion_fecha = (SELECT DATEDIFF(p_fecha_renovacion,NOW())) >= 0;  
+    IF NOT verificacion_fecha THEN
+        RETURN 'Error: La fecha de renovacion ingresada debe de ser mayor o igual al dia de hoy';
+    END IF;
+
+    IF NOT (p_id_tipo_licencia = 'A' OR p_id_tipo_licencia = 'B' OR p_id_tipo_licencia = 'C' OR p_id_tipo_licencia = 'E' OR p_id_tipo_licencia = 'M') THEN
+        RETURN 'El tipo de licencia no es valido';
+    END IF;  
+
+    IF p_id_tipo_licencia = 'E' THEN
+        SET v_fecha_vencimiento = (SELECT fecha_vencimiento FROM detalle_licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir AND id_tipo_licencia = 'E' ORDER BY id_detalle_licencia_conducir ASC LIMIT 1);
+        IF v_fecha_vencimiento IS NULL THEN
+            RETURN 'Error: No ha poseido jamas una licencia tipo E es necesario que se solicite una';
+        ELSE
+            SET v_nueva_fecha_vencimiento = (SELECT obtenerNuevaFechaVencimiento(v_fecha_vencimiento,p_fecha_renovacion,cantidad_anios));
+        END IF;
+    ELSE
+        SET v_fecha_vencimiento = (SELECT fecha_vencimiento FROM detalle_licencia_conducir WHERE id_licencia_conducir = p_id_licencia_conducir ORDER BY id_detalle_licencia_conducir ASC LIMIT 1);
+        SET v_nueva_fecha_vencimiento = (SELECT obtenerNuevaFechaVencimiento(v_fecha_vencimiento,p_fecha_renovacion,cantidad_anios));
+
+        IF p_id_tipo_licencia = 'A' THEN
+            SET v_mayor_25 = (SELECT COUNT(id_licencia_conducir) FROM licencia_conducir lc INNER JOIN acta_nacimiento an ON an.id_acta_nacimiento = lc.id_acta_nacimiento WHERE lc.id_licencia_conducir = p_id_licencia_conducir AND DATEDIFF(NOW(),DATE_ADD(an.fecha_nacimiento,INTERVAL 25 YEAR))) >= 0;
+            IF v_mayor_25 THEN
+                SET v_cantidad_anios_licencia = (SELECT SUM(YEAR(fecha_vencimiento) - YEAR(fecha_renovacion)) FROM detalle_licencia_conducir dlc WHERE id_licencia_conducir = p_id_licencia_conducir AND (id_tipo_licencia = 'C' OR id_tipo_licencia = 'B'));
+                IF v_cantidad_anios_licencia < 3 THEN
+                    RETURN CONCAT('Error: No puede obtener este tipo de licencia debido a que le hacen falta ',3-v_cantidad_anios_licencia, ' años con la licencia tipo C o B');
+                END IF;
+            ELSE
+                RETURN CONCAT('Error: Es menor a 25 años');
+            END IF;  
+        ELSEIF p_id_tipo_licencia = 'B' THEN
+            SET v_mayor_23 = (SELECT COUNT(id_licencia_conducir) FROM licencia_conducir lc INNER JOIN acta_nacimiento an ON an.id_acta_nacimiento = lc.id_acta_nacimiento WHERE lc.id_licencia_conducir = p_id_licencia_conducir AND DATEDIFF(NOW(),DATE_ADD(an.fecha_nacimiento,INTERVAL 23 YEAR))) >= 0;
+            IF v_mayor_23 THEN
+                SET v_cantidad_anios_licencia = (SELECT SUM(YEAR(fecha_vencimiento) - YEAR(fecha_renovacion)) FROM detalle_licencia_conducir dlc WHERE id_licencia_conducir = p_id_licencia_conducir AND id_tipo_licencia = 'C');
+                IF v_cantidad_anios_licencia < 2 THEN
+                    RETURN CONCAT('Error: No puede obtener este tipo de licencia debido a que le hacen falta ',2-v_cantidad_anios_licencia, ' años con la licencia tipo C');
+                END IF;
+            ELSE
+                RETURN CONCAT('Error: Es menor a 23 años');
+            END IF;            
+        END IF;
+    END IF;
+
+    INSERT INTO detalle_licencia_conducir (fecha_renovacion,fecha_vencimiento,id_tipo_licencia,id_licencia_conducir) 
+    VALUES (p_fecha_renovacion,v_nueva_fecha_vencimiento,p_id_tipo_licencia,p_id_licencia_conducir);
     RETURN 'Ingresado Correctamente';
 END$$
 DELIMITER

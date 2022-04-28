@@ -35,6 +35,23 @@ SELECT anularLicencia(1019,'2023-01-01','Se paso un rojo'); -- Correcto
 SELECT anularLicencia(1019,'2022-12-01','Se paso un rojo'); -- Error ya que ya ha sido anulado con anterioridad y la fecha es menor a la ya asignada
 SELECT anularLicencia(1019,'2024-12-02','Se paso un rojo'); -- Correcto
 
+-- Renovacion de Licencia
+SELECT renewLicencia(123,'2022-04-28','M',0); -- Error rango de fecha
+SELECT renewLicencia(123,'2022-04-28','M',3); -- Error el numero de licencia no existe
+SELECT renewLicencia(1019,'2022-04-28','M',3); -- Error la licencia esta anulada
+SELECT renewLicencia(1000,'2022-04-27','M',3); -- Error la fecha de renovacion debe de ser igual o mayor a hoy
+SELECT renewLicencia(1000,'2022-04-28','E',3); -- Error nunca a poseido una licencia tipo E
+SELECT renewLicencia(1000,'2022-04-28','A',3); -- Error no lleva mas de 3 años con licencia B o C
+SELECT renewLicencia(1001,'2022-04-28','B',3); -- Error no lleva mas de 2 años con licencia C
+SELECT renewLicencia(1000,'2022-06-01','C',1); -- Correcto
+    -- Verificando renovacion de licencia tipo E
+    SELECT AddLicencia(10000000060116,'2021-06-06','E');
+    SELECT renewLicencia(1020,'2022-05-28','E',3);
+    -- Cambiar de C a B
+    SELECT renewLicencia(1000,'2022-06-01','B',1); -- Correcto
+    -- Cambiar de (C o B) a A
+    SELECT renewLicencia(1000,'2023-06-01','A',1); -- Correcto
+
 -- Generar DPI
 SELECT generarDPI(1,'2020-01-06',101); -- Error No existe el CUI
 SELECT generarDPI(10000000021407,'2020-01-06',1); -- Error No existe el id_municipio
