@@ -579,6 +579,30 @@ END$$
 DELIMITER
 
 DELIMITER $$
+CREATE PROCEDURE getNacimiento(IN p_cui BIGINT)
+BEGIN
+    SELECT an.id_acta_nacimiento AS no_acta,p_cui AS cui,
+    CONCAT((SELECT obtenerApellido(an.primer_apellido)),' ',(SELECT obtenerApellido(an.segundo_apellido))) AS apellidos,
+    CONCAT((SELECT obtenerNombre(an.primer_nombre)),' ',(SELECT obtenerNombre(an.segundo_nombre)),' ',(SELECT obtenerNombre(an.tercer_nombre))) AS nombres,
+    an.id_padre AS dpi_padre, 
+    CONCAT((SELECT obtenerNombre(anp.primer_nombre)),' ',(SELECT obtenerNombre(anp.segundo_nombre)),' ',(SELECT obtenerNombre(anp.tercer_nombre))) AS nombre_padre,
+    CONCAT((SELECT obtenerApellido(anp.primer_apellido)),' ',(SELECT obtenerApellido(anp.segundo_apellido))) AS apellido_padre,
+    an.id_madre AS dpi_madre, 
+    CONCAT((SELECT obtenerNombre(anm.primer_nombre)),' ',(SELECT obtenerNombre(anm.segundo_nombre)),' ',(SELECT obtenerNombre(anm.tercer_nombre))) AS nombre_madre,
+    CONCAT((SELECT obtenerApellido(anm.primer_apellido)),' ',(SELECT obtenerApellido(anm.segundo_apellido))) AS apellido_madre,
+    an.fecha_nacimiento,d.nombre AS departamento,m.nombre AS municipio,an.genero
+    FROM acta_nacimiento an
+    INNER JOIN municipio m ON m.id_municipio = an.id_municipio
+    INNER JOIN departamento d ON d.id_departamento = m.id_departamento
+    LEFT JOIN ciudadano cp ON cp.dpi = an.id_padre
+    LEFT JOIN acta_nacimiento anp ON anp.id_acta_nacimiento = cp.id_acta_nacimiento 
+    LEFT JOIN ciudadano cm ON cm.dpi = an.id_madre 
+    LEFT JOIN acta_nacimiento anm ON anm.id_acta_nacimiento = cm.id_acta_nacimiento 
+    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+END$$
+DELIMITER
+
+DELIMITER $$
 CREATE PROCEDURE getDivorcio(IN p_id_acta_divorcio INT)
 BEGIN
     SELECT ad.id_acta_divorcio AS no_divorcio, am.dpi_hombre,

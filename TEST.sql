@@ -61,5 +61,6 @@ SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2000-01-01',101,
 SELECT generarDPI(10000020000101,'2020-01-06',101); -- Correcto pero tiene que ejecutarse el addNacimiento de arriba
 
 -- PROCEDIMIENTOS
+CALL getNacimiento(10000020000101); -- Antes de ejecutar esto se debe de hacer un acta de nacimiento con padres SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2020-01-01',101,'M');
 CALL getDPI(10000000021407);
 CALL getDivorcio(1000);
