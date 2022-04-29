@@ -619,7 +619,7 @@ END$$
 DELIMITER
 
 DELIMITER $$
-CREATE PROCEDURE getDivorcio(IN p_id_acta_divorcio INT)
+CREATE PROCEDURE getDivorcio(IN p_id_acta_matrimonio BIGINT)
 BEGIN
     SELECT ad.id_acta_divorcio AS no_divorcio, am.dpi_hombre,
     CONCAT  (
@@ -644,6 +644,6 @@ BEGIN
     INNER JOIN acta_nacimiento an1 ON an1.id_acta_nacimiento = c1.id_acta_nacimiento
     INNER JOIN ciudadano c2 ON c2.dpi = am.dpi_mujer
     INNER JOIN acta_nacimiento an2 ON an2.id_acta_nacimiento = c2.id_acta_nacimiento
-    WHERE id_acta_divorcio = p_id_acta_divorcio;
+    WHERE am.id_acta_matrimonio = p_id_acta_matrimonio;
 END$$
 DELIMITER

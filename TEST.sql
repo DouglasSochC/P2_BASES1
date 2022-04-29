@@ -77,4 +77,4 @@ SELECT renewLicencia(1020,'2024-06-05','E',1);
 CALL getNacimiento(10000020000101);
 CALL getDPI(10000000021407);
 CALL getLicencias(10000000060116);
-CALL getDivorcio(1000);
+CALL getDivorcio(1010);
