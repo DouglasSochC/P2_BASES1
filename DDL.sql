@@ -130,6 +130,7 @@ ALTER TABLE acta_nacimiento ADD CONSTRAINT `fk_madre` FOREIGN KEY (`id_madre`) R
 ALTER TABLE acta_nacimiento AUTO_INCREMENT=1000000000;
 ALTER TABLE acta_matrimonio AUTO_INCREMENT=1000;
 ALTER TABLE acta_divorcio AUTO_INCREMENT=1000;
+ALTER TABLE acta_defuncion AUTO_INCREMENT=1000;
 ALTER TABLE licencia_conducir AUTO_INCREMENT=1000;
 ALTER TABLE departamento AUTO_INCREMENT=10;
 ALTER TABLE municipio AUTO_INCREMENT=10;
@@ -645,5 +646,20 @@ BEGIN
     INNER JOIN ciudadano c2 ON c2.dpi = am.dpi_mujer
     INNER JOIN acta_nacimiento an2 ON an2.id_acta_nacimiento = c2.id_acta_nacimiento
     WHERE am.id_acta_matrimonio = p_id_acta_matrimonio;
+END$$
+DELIMITER
+
+DELIMITER $$
+CREATE PROCEDURE getDefuncion(IN p_cui BIGINT)
+BEGIN
+    SELECT ad.id_acta_defuncion AS no_acta, p_cui AS cui,
+    CONCAT ((SELECT obtenerApellido(an.primer_apellido)),' ',(SELECT obtenerApellido(an.segundo_apellido))) AS apellidos,
+    CONCAT ((SELECT obtenerNombre(an.primer_nombre)),' ',(SELECT obtenerNombre(an.segundo_nombre)),' ',(SELECT obtenerNombre(an.tercer_nombre))) AS nombres,
+    ad.fecha_fallecimiento, d.nombre AS departamento, m.nombre AS municipio, ad.motivo
+    FROM acta_defuncion ad
+    INNER JOIN acta_nacimiento an ON an.id_acta_nacimiento = ad.id_acta_nacimiento
+    INNER JOIN municipio m ON m.id_municipio = an.id_municipio
+    INNER JOIN departamento d ON d.id_departamento = m.id_departamento 
+    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
 END$$
 DELIMITER
