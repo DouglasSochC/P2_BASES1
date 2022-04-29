@@ -558,6 +558,30 @@ DELIMITER
 -- PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS PROCEDIMIENTOS --
 
 DELIMITER $$
+CREATE PROCEDURE getNacimiento(IN p_cui BIGINT)
+BEGIN
+    SELECT an.id_acta_nacimiento AS no_acta,p_cui AS cui,
+    CONCAT((SELECT obtenerApellido(an.primer_apellido)),' ',(SELECT obtenerApellido(an.segundo_apellido))) AS apellidos,
+    CONCAT((SELECT obtenerNombre(an.primer_nombre)),' ',(SELECT obtenerNombre(an.segundo_nombre)),' ',(SELECT obtenerNombre(an.tercer_nombre))) AS nombres,
+    an.id_padre AS dpi_padre, 
+    CONCAT((SELECT obtenerNombre(anp.primer_nombre)),' ',(SELECT obtenerNombre(anp.segundo_nombre)),' ',(SELECT obtenerNombre(anp.tercer_nombre))) AS nombre_padre,
+    CONCAT((SELECT obtenerApellido(anp.primer_apellido)),' ',(SELECT obtenerApellido(anp.segundo_apellido))) AS apellido_padre,
+    an.id_madre AS dpi_madre, 
+    CONCAT((SELECT obtenerNombre(anm.primer_nombre)),' ',(SELECT obtenerNombre(anm.segundo_nombre)),' ',(SELECT obtenerNombre(anm.tercer_nombre))) AS nombre_madre,
+    CONCAT((SELECT obtenerApellido(anm.primer_apellido)),' ',(SELECT obtenerApellido(anm.segundo_apellido))) AS apellido_madre,
+    an.fecha_nacimiento,d.nombre AS departamento,m.nombre AS municipio,an.genero
+    FROM acta_nacimiento an
+    INNER JOIN municipio m ON m.id_municipio = an.id_municipio
+    INNER JOIN departamento d ON d.id_departamento = m.id_departamento
+    LEFT JOIN ciudadano cp ON cp.dpi = an.id_padre
+    LEFT JOIN acta_nacimiento anp ON anp.id_acta_nacimiento = cp.id_acta_nacimiento 
+    LEFT JOIN ciudadano cm ON cm.dpi = an.id_madre 
+    LEFT JOIN acta_nacimiento anm ON anm.id_acta_nacimiento = cm.id_acta_nacimiento 
+    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+END$$
+DELIMITER
+
+DELIMITER $$
 CREATE PROCEDURE getDPI(IN p_cui BIGINT)
 BEGIN
     SELECT p_cui AS CUI,
@@ -579,26 +603,18 @@ END$$
 DELIMITER
 
 DELIMITER $$
-CREATE PROCEDURE getNacimiento(IN p_cui BIGINT)
+CREATE PROCEDURE getLicencias(IN p_cui BIGINT)
 BEGIN
-    SELECT an.id_acta_nacimiento AS no_acta,p_cui AS cui,
-    CONCAT((SELECT obtenerApellido(an.primer_apellido)),' ',(SELECT obtenerApellido(an.segundo_apellido))) AS apellidos,
-    CONCAT((SELECT obtenerNombre(an.primer_nombre)),' ',(SELECT obtenerNombre(an.segundo_nombre)),' ',(SELECT obtenerNombre(an.tercer_nombre))) AS nombres,
-    an.id_padre AS dpi_padre, 
-    CONCAT((SELECT obtenerNombre(anp.primer_nombre)),' ',(SELECT obtenerNombre(anp.segundo_nombre)),' ',(SELECT obtenerNombre(anp.tercer_nombre))) AS nombre_padre,
-    CONCAT((SELECT obtenerApellido(anp.primer_apellido)),' ',(SELECT obtenerApellido(anp.segundo_apellido))) AS apellido_padre,
-    an.id_madre AS dpi_madre, 
-    CONCAT((SELECT obtenerNombre(anm.primer_nombre)),' ',(SELECT obtenerNombre(anm.segundo_nombre)),' ',(SELECT obtenerNombre(anm.tercer_nombre))) AS nombre_madre,
-    CONCAT((SELECT obtenerApellido(anm.primer_apellido)),' ',(SELECT obtenerApellido(anm.segundo_apellido))) AS apellido_madre,
-    an.fecha_nacimiento,d.nombre AS departamento,m.nombre AS municipio,an.genero
-    FROM acta_nacimiento an
-    INNER JOIN municipio m ON m.id_municipio = an.id_municipio
-    INNER JOIN departamento d ON d.id_departamento = m.id_departamento
-    LEFT JOIN ciudadano cp ON cp.dpi = an.id_padre
-    LEFT JOIN acta_nacimiento anp ON anp.id_acta_nacimiento = cp.id_acta_nacimiento 
-    LEFT JOIN ciudadano cm ON cm.dpi = an.id_madre 
-    LEFT JOIN acta_nacimiento anm ON anm.id_acta_nacimiento = cm.id_acta_nacimiento 
-    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
+    SELECT p_cui AS cui,
+    CONCAT ((SELECT obtenerNombre(an.primer_nombre)),' ',(SELECT obtenerNombre(an.segundo_nombre)),' ',(SELECT obtenerNombre(an.tercer_nombre)),' ',
+    (SELECT obtenerApellido(an.primer_apellido)),' ',(SELECT obtenerApellido(an.segundo_apellido))) AS nombre_completo,
+    lc.id_licencia_conducir AS no_licencia_conducir,JSON_ARRAYAGG(CONCAT(tl.id_tipo_licencia,',',dlc.fecha_renovacion,',',dlc.fecha_vencimiento)) AS detalle
+    FROM licencia_conducir lc 
+    INNER JOIN detalle_licencia_conducir dlc ON dlc.id_licencia_conducir = lc.id_licencia_conducir 
+    INNER JOIN tipo_licencia tl ON tl.id_tipo_licencia = dlc.id_tipo_licencia
+    INNER JOIN acta_nacimiento an ON an.id_acta_nacimiento = lc.id_acta_nacimiento
+    WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui))
+    GROUP BY lc.id_licencia_conducir;
 END$$
 DELIMITER
 

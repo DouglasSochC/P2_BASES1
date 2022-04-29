@@ -60,7 +60,21 @@ SELECT generarDPI(10000000012003,'2020-01-06',101); -- Error No se puede generar
 SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2000-01-01',101,'M');
 SELECT generarDPI(10000020000101,'2020-01-06',101); -- Correcto pero tiene que ejecutarse el addNacimiento de arriba
 
+-- INGRESOS PREVIOS
+-- Antes de testearlos es necesario realizar los siguientes ingresos:
+-- Para getNacimiento
+SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2020-01-01',101,'M');
+-- Para getLicencias
+SELECT renewLicencia(1000,'2022-06-05','C',1);
+SELECT renewLicencia(1000,'2023-01-05','M',1);
+SELECT renewLicencia(1000,'2024-01-05','M',1);
+SELECT AddLicencia(10000000060116,'2019-01-06','E');
+SELECT renewLicencia(1020,'2022-06-05','E',1);
+SELECT renewLicencia(1020,'2023-06-05','E',1);
+SELECT renewLicencia(1020,'2024-06-05','E',1);
+
 -- PROCEDIMIENTOS
-CALL getNacimiento(10000020000101); -- Antes de ejecutar esto se debe de hacer un acta de nacimiento con padres SELECT addNacimiento(10000000021407,10000019982211,'a','b','c','2020-01-01',101,'M');
+CALL getNacimiento(10000020000101);
 CALL getDPI(10000000021407);
+CALL getLicencias(10000000060116);
 CALL getDivorcio(1000);
