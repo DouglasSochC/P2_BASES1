@@ -663,3 +663,32 @@ BEGIN
     WHERE an.id_acta_nacimiento = (SELECT obtenerIDAN(p_cui));
 END$$
 DELIMITER
+
+DELIMITER $$
+CREATE PROCEDURE getMatrimonio(IN p_id_acta_matrimonio BIGINT)
+BEGIN
+    SELECT am.id_acta_matrimonio, am.dpi_hombre,
+    CONCAT  (
+                (SELECT obtenerNombre(an1.primer_nombre)),' ',
+                (SELECT obtenerNombre(an1.segundo_nombre)),' ',
+                (SELECT obtenerNombre(an1.tercer_nombre)),' ',
+                (SELECT obtenerApellido(an1.primer_apellido)),' ',
+                (SELECT obtenerApellido(an1.segundo_apellido))
+            ) AS nombre_completo_hombre,
+    am.dpi_mujer,
+    CONCAT  (
+                (SELECT obtenerNombre(an2.primer_nombre)),' ',
+                (SELECT obtenerNombre(an2.segundo_nombre)),' ',
+                (SELECT obtenerNombre(an2.tercer_nombre)),' ',
+                (SELECT obtenerApellido(an2.primer_apellido)),' ',
+                (SELECT obtenerApellido(an2.segundo_apellido))
+            ) AS nombre_completo_mujer,
+    am.fecha_matrimonio
+    FROM acta_matrimonio am
+    INNER JOIN ciudadano c1 ON c1.dpi = am.dpi_hombre
+    INNER JOIN acta_nacimiento an1 ON an1.id_acta_nacimiento = c1.id_acta_nacimiento
+    INNER JOIN ciudadano c2 ON c2.dpi = am.dpi_mujer
+    INNER JOIN acta_nacimiento an2 ON an2.id_acta_nacimiento = c2.id_acta_nacimiento
+    WHERE am.id_acta_matrimonio = p_id_acta_matrimonio;
+END$$
+DELIMITER

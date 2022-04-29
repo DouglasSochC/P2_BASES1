@@ -79,3 +79,4 @@ CALL getDPI(10000000021407);
 CALL getLicencias(10000000060116);
 CALL getDivorcio(1010);
 CALL getDefuncion(10000000030808);
+CALL getMatrimonio(1000);
